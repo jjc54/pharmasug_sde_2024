@@ -1,25 +1,166 @@
 ---
-title: "sdtm_to_adam"
+title: "Hands-On Example: Mapping  SDTM to ADaM Using R"
+author: "Joshua J. Cook"
+date: "`r Sys.Date()`"
 format: html
+embed-resources: true
+toc: true
 ---
 
-## Quarto
+## Objective
 
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+The goal of this section is to [**transform our SDTM dataset into an ADaM (Analysis Data Model)**]{.underline} dataset that is CDISC-compliant. This ensures that our clinical data is ready for [statistical analysis and reporting]{.underline}, following CDISC ADaM standards.
 
-## Running Code
+## Key Points for Presentation
 
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+-   **Overview**: Demonstrate mapping SDTM-compliant data to ADaM format using R.
+-   **Required Libraries**: Use `{tidyverse}` for effective data manipulation and `{admiral}` to facilitate the creation of ADaM datasets.
+-   **Input Data**: Use the SDTM DM dataset we previously created.
+-   **Data Understanding**: Ensure proper derivation of analysis-ready variables and adherence to ADaM standards.
+-   **Transformation Process**:
+    -   Derive analysis variables such as `AGEGR1` (Age Group 1) from `AGE`.
+    -   Create analysis flags and population indicators (e.g., `SAFFL` for Safety Population Flag).
+-   **Metadata Creation**: Document ADaM variables to align with Define XML standards for submissions.
+
+## Step-by-Step Transformation from SDTM to ADaM
+
+### Step 1: Load Required Libraries & Data
 
 ```{r}
-1 + 1
+
+if (!requireNamespace(c("tidyverse", "admiral"), quietly = TRUE)) {
+  install.packages(c("tidyverse", "admiral"))
+}
+
+# Load necessary libraries & data
+library(tidyverse)  # Tidyverse for data manipulation
+
+# Loading the dataset in the second document
+sdtm_dm <- readRDS("sdtm_dm.rds") # Loads our SDTM data 
 ```
 
-You can add options to executable code like this
+**Explanation**: We start by loading the `{tidyverse}` package, which provides a collection of tools for data manipulation, cleaning, and transformation. We also load in our previously generated SDTM dataset.
+
+### Step 2: Create the ADaM Dataset from SDTM DM Dataset
 
 ```{r}
-#| echo: false
-2 * 2
+# Deriving ADaM Dataset from SDTM DM Dataset
+# Use the SDTM DM dataset as input to derive analysis-ready ADaM variables.
+
+adam_dm <- sdtm_dm %>%
+  mutate(
+    # Deriving the Age Group Variable (AGEGR1)
+    # 'case_when()' is used for creating conditions for assigning different age groups.
+    # If AGE is less than 18, assign "<18"; if between 18 and 65, assign "18-65"; otherwise, assign ">65".
+    AGEGR1 = case_when(
+      AGE < 18 ~ "<18",
+      AGE >= 18 & AGE <= 65 ~ "18-65",
+      AGE > 65 ~ ">65"
+    ),
+    # Creating the Safety Population Flag (SAFFL)
+    # 'ifelse()' is used to assign a value based on a condition.
+    # If SEX is either "M" or "F", assign "Y" (Yes) for safety flag, otherwise assign "N" (No).
+    SAFFL = ifelse(SEX %in% c("M", "F"), "Y", "N") # Safety Population Flag based on valid SEX values
+  )
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+**Explanation**: In this step, we derive two key variables: - `AGEGR1` is created using `case_when()`, which allows categorizing subjects into age groups. - `SAFFL` is derived to indicate whether a subject is part of the safety population based on their gender (`SEX`).
+
+### Step 3: Select Relevant Columns for the ADaM Dataset
+
+```{r}
+# The 'select()' function is used to choose specific columns to include in the final ADaM dataset.
+adam_dm <- adam_dm %>%
+  select(
+    STUDYID, USUBJID, AGE, AGEGR1, SEX, ETHNIC, RACE, RACERECOD, SAFFL
+  )
+```
+
+**Explanation**: We use the `select()` function to retain only the necessary columns needed for the ADaM dataset. This helps to simplify the dataset by including only analysis-relevant variables.
+
+### Step 4: View the Derived ADaM Dataset
+
+```{r}
+# View the derived ADaM DM dataset
+# 'head()' is used to display the first few rows of the dataset, allowing us to verify the transformation.
+head(adam_dm)
+```
+
+**Explanation**: The `head()` function is used to view the first few rows of the transformed ADaM dataset, ensuring that the transformations have been performed correctly.
+
+## Justification for Using `{admiral}` for More Complex Analyses
+
+-   **CDISC Compliance**: `{admiral}` is part of the Pharmaverse and is specifically designed to support CDISC compliance. It helps standardize the process of deriving ADaM datasets, ensuring that outputs meet regulatory requirements.
+-   **Streamlined Workflows**: `{admiral}` provides a set of high-level functions specifically tailored for clinical data. This allows for more streamlined workflows compared to using `{tidyverse}` alone, which requires custom code for each derivation.
+-   **Complex Derivations**: `{admiral}` includes functions such as `derive_var_extreme_flag()`, which simplifies complex derivations, making it easier to perform advanced calculations like determining treatment-emergent flags or deriving other analysis-specific variables.
+-   **Reusability and Readability**: The functions provided by `{admiral}` are reusable and specifically named to indicate their role in clinical data transformation, which makes the code more readable and easier to maintain in large projects.
+
+## Example Code for ADaM Derivation Using `{admiral}` (Complex Example)
+
+```{r}
+# Load the required libraries
+# The admiral package helps in the creation of ADaM datasets in a standardized manner.
+library(tidyverse)  # Tidyverse for general data manipulation
+library(admiral)    # Admiral for ADaM dataset creation
+
+# Create a copy of the SDTM DM dataset to use for ADaM derivation
+adam_input <- sdtm_dm
+
+# Derive AGEGR1 (Age Group 1) using mutate and case_when
+# 'mutate()' adds new variables or modifies existing ones.
+# 'case_when()' assigns values based on conditional logic.
+adam_dm_admiral <- adam_input %>%
+  mutate(
+    AGEGR1 = case_when(
+      AGE < 18 ~ "<18",
+      AGE >= 18 & AGE <= 65 ~ "18-65",
+      AGE > 65 ~ ">65"
+    )
+  )
+
+# Derive Safety Population Flag (SAFFL) using admiral convention
+# 'if_else()' is similar to 'ifelse()' but ensures type consistency.
+# This flag is derived to identify whether the subject is part of the safety population.
+adam_dm_admiral <- adam_dm_admiral %>%
+  mutate(
+    SAFFL = if_else(SEX %in% c("M", "F"), "Y", "N")
+  )
+
+# Derive Treatment Emergent Flag (TRTEMFL) - hypothetical example for illustrative purposes
+# 'derive_var_extreme_flag()' is an admiral function used to derive a flag for extreme values.
+# Here, we derive a flag based on the last recorded AGE for each subject.
+adam_dm_admiral <- adam_dm_admiral %>%
+  derive_var_extreme_flag(
+    by_vars = exprs(USUBJID),  # 'by_vars' defines the grouping variable (Unique Subject ID)
+    order = exprs(AGE),        # 'order' specifies the variable to determine the extreme value (AGE)
+    new_var = TRTEMFL,         # 'new_var' specifies the name of the new flag variable
+    mode = "last"             # 'mode' determines if we want the "first" or "last" extreme value
+  )
+
+# Select only necessary columns for ADaM dataset
+# The 'select()' function chooses the variables we want in our final dataset.
+adam_dm_admiral <- adam_dm_admiral %>%
+  select(
+    STUDYID, USUBJID, AGE, AGEGR1, SEX, ETHNIC, RACE, RACERECOD, SAFFL, TRTEMFL
+  )
+
+# View the final derived ADaM DM dataset
+# 'head()' is used to display the first few rows of the dataset.
+head(adam_dm_admiral)
+```
+
+## Important CDISC Concepts of SDTM and ADaM that We Are Adhering To During These Processes:
+
+-   **Standardization**: Both SDTM and ADaM require that datasets are standardized to facilitate easier review by regulatory bodies. This involves ensuring consistent formats and structures across different clinical trials.
+-   **Traceability**: The derivation of variables like `AGEGR1` and `SAFFL` from raw SDTM data ensures traceability, which is a key CDISC concept. This means that each ADaM variable can be traced back to its original source in the SDTM dataset.
+-   **Metadata Documentation**: Variables in the ADaM dataset must be well-documented with metadata, including descriptions of how each variable is derived, to comply with CDISC standards.
+-   **Population Flagging**: `SAFFL` (Safety Population Flag) is an example of defining specific subpopulations for analysis. This helps to identify the subjects included in particular analyses.
+
+## Summary of ADaM Creation
+
+-   **Age Group Derivation** (`AGEGR1`): Classified subjects into predefined age groups.
+-   **Safety Population Flag** (`SAFFL`): Flagged subjects for inclusion in the safety population based on available demographic data.
+-   **Treatment Emergent Flag** (`TRTEMFL`): Derived flag indicating treatment-emergent subjects based on age (hypothetical use case for demonstration).
+-   **Compliance with ADaM Standards**: Ensured derived variables and dataset structure align with CDISC ADaM guidelines, leveraging `{admiral}` for standardization.
+
+This hands-on section helps participants understand how to transform SDTM data into analysis-ready ADaM datasets using a more complex approach, emphasizing compliance with CDISC standards for regulatory submissions.

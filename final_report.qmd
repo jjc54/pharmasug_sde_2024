@@ -1,25 +1,130 @@
 ---
-title: "final_report"
-format: html
+title: "Hands-On Example: Creating a Final Report with Quarto"
+author: "Joshua J. Cook"
+date: "`r Sys.Date()`"
+format: 
+  html:
+    toc: true
+  pdf:
+    toc: true
+embed-resources: true
 ---
 
-## Quarto
+## Objective
 
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+The goal of this section is to use the complete CDISC-compliant SDTM and ADaM datasets to [**create a final report using Quarto**]{.underline}. This report will include [tables, listings, and figures (TLFs)]{.underline}, which are commonly required for regulatory submissions.
 
-## Running Code
+## Key Points for Presentation
 
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+-   **Overview**: Use the complete CDISC-compliant SDTM and ADaM datasets to create a final report using Quarto.
+-   **Required Libraries**: `{tidyverse}` for data manipulation and figures, `{gt}` and `{gtsummary}` for listings and tables, and `{quarto}` for generating the final reproducible report.
+-   **Input Data**: Imputed SDTM and ADaM Datasets.
+-   **Data Understanding**: Understand how to create TLFs using imputed datasets to ensure compliance with regulatory standards.
+-   **Report Creation Process**:
+    -   Generate tables and listings using `{gt}` and `{gtsummary}`.
+    -   Create figures using `{ggplot2}`.
+    -   Compile the final report using `{quarto}`.
+
+## Step-by-Step Report Creation with Quarto
+
+### Step 1: Load Required Libraries
 
 ```{r}
-1 + 1
+
+if (!requireNamespace(c("tidyverse", "gt", "gtsummary", "quarto"), quietly = TRUE)) {
+  install.packages(c("tidyverse", "gt", "gtsummary", "quarto"))
+}
+
+# Load necessary libraries
+library(tidyverse)  # Tidyverse for data manipulation and figures
+library(gt)         # GT for creating high-quality tables
+library(gtsummary)  # Gtsummary for creating clinical trial summary tables
+library(quarto)     # Quarto for generating the final report
+
+# Loading the dataset in the final document
+sdtm_dm_imputed <- readRDS("sdtm_dm_imputed.rds") # Loads our SDTM data 
+adam_dm_imputed <- readRDS("adam_dm_imputed.rds") # Loads our ADaM data 
 ```
 
-You can add options to executable code like this
+**Explanation**: We start by loading the `{tidyverse}` package for data manipulation and visualization, `{gt}` and `{gtsummary}` for creating tables and listings, and `{quarto}` for generating the final report. We also load in our previously generated SDTM and ADaM datasets.
+
+### Step 2: Generate Summary Tables and Listings
 
 ```{r}
-#| echo: false
-2 * 2
+# Generate a summary table for demographic characteristics using gtsummary
+summary_table <- sdtm_dm_imputed %>%
+  # Select relevant columns for summarization: AGE, SEX, ETHNIC, and RACE
+  select(AGE, SEX, ETHNIC, RACE) %>%
+  
+  # Create a summary table with grouping by SEX
+  tbl_summary(
+    by = SEX,  # Group data by SEX to summarize separately for each group
+    statistic = list(all_continuous() ~ "{mean} ({sd})")  # Define how to summarize continuous variables (mean and standard deviation)
+  ) %>%
+  
+  # Bold the labels for better visualization in the output table
+  bold_labels()
+
+# View the summary table
+summary_table
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+**Explanation**: Here, we use `{gtsummary}` to create a summary table for demographic characteristics, grouped by `SEX`. The `tbl_summary()` function is used to summarize the `AGE`, `ETHNIC`, and `RACE` variables, with continuous variables reported as mean and standard deviation.
+
+### Step 3: Generate High-Quality Tables for Listings
+
+```{r}
+# Generate a high-quality listing using gt
+listing_table <- sdtm_dm_imputed %>%
+  select(STUDYID, USUBJID, AGE, SEX, ETHNIC, RACE) %>%  # Select relevant columns for listing
+  gt()  # Create a high-quality table using gt
+
+# View the listing table
+listing_table
+```
+
+**Explanation**: In this step, we use `{gt}` to create a listing of the demographic data. The `gt()` function helps generate publication-quality tables that can be included in the final report.
+
+### Step 4: Create Figures Using ggplot2
+
+```{r}
+# Generate a histogram of AGE by SEX
+age_histogram <- sdtm_dm_imputed %>%
+  # Use the pipe operator to feed data into ggplot function for visualization
+  ggplot(aes(x = AGE, fill = SEX)) +
+  
+  # Create a histogram with 'geom_histogram()'
+  # 'aes()' defines the variables for the x-axis and fill color (by SEX)
+  geom_histogram(binwidth = 5, alpha = 0.7, position = "dodge") +
+  
+  # Add descriptive labels for the title, x-axis, and y-axis of the plot
+  labs(title = "Age Distribution by Sex", x = "Age", y = "Count") +
+  
+  # Apply 'theme_minimal()' for a cleaner, minimal visual style
+  theme_minimal()
+
+# View the histogram
+age_histogram
+```
+
+**Explanation**: We use `{ggplot2}` from `{tidyverse}` to create a histogram of `AGE` by `SEX`. This figure helps visualize the distribution of age across different sexes in the dataset.
+
+### Step 5: Compile the Final Report Using Quarto - hit RENDER
+
+**Explanation**: Finally, we use `{quarto}` to compile the report. The `quarto_render()` function takes the input Quarto markdown file (`final_report.qmd`) and generates the output in HTML format, incorporating the SDTM and ADaM datasets.
+
+## Important CDISC Concepts for Creating Regulatory-Compliant Reports
+
+-   **Standardization**: The use of CDISC standards ensures that datasets are consistent across different clinical trials, which is essential for regulatory review.
+-   **Traceability**: All derived variables, tables, and figures must be traceable to their source data, ensuring transparency.
+-   **Metadata Documentation**: Proper documentation of variables and methods used in TLF generation is crucial for regulatory submissions.
+-   **Regulatory Requirements**: TLFs are a key part of clinical trial reporting, and adhering to ADaM standards ensures that these outputs meet regulatory guidelines.
+
+## Summary of Report Creation
+
+-   **Tables and Listings**: Created summary tables and listings using `{gt}` and `{gtsummary}` to meet regulatory submission requirements.
+-   **Figures**: Visualized key demographic data using `{ggplot2}`.
+-   **Quarto Report**: Compiled all tables, listings, and figures into a final report using `{quarto}`.
+-   **Compliance with CDISC Standards**: Ensured that all outputs were compliant with CDISC standards, providing traceability and proper documentation.
+
+This hands-on section helps participants understand how to create a final clinical trial report that includes TLFs, emphasizing compliance with CDISC standards for regulatory submissions.

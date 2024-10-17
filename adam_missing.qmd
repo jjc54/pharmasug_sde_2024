@@ -1,25 +1,227 @@
 ---
-title: "adam_missing"
+title: "Hands-On Example: Mapping from SDTM to ADaM Using R and Handling Missing Data with Multiple Imputation"
+author: "Joshua J. Cook"
+date: "`r Sys.Date()`"
 format: html
+embed-resources: true
+toc: true
 ---
 
-## Quarto
+## Objective
 
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+The goal of this section is to transform our SDTM dataset into an ADaM (Analysis Data Model) dataset that is CDISC-compliant while [**handling missing data with multiple imputation**]{.underline}. This ensures that our clinical data is ready for [statistical analysis and reporting]{.underline}, following CDISC ADaM standards.
 
-## Running Code
+## Key Points for Presentation
 
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+-   **Overview**: Demonstrate mapping SDTM-compliant data to ADaM format using R and handle missing data with multiple imputation.
+-   **Required Libraries**: Use `{tidyverse}` for effective data manipulation, `{admiral}` to facilitate the creation of ADaM datasets, and `{mice}` for handling missing data.
+-   **Input Data**: Use the SDTM DM dataset we previously created.
+-   **Data Understanding**: Ensure proper derivation of analysis-ready variables and adherence to ADaM standards while addressing missing values.
+-   **Transformation Process**:
+    -   Generate missing values for `AGE` and `SEX`.
+    -   Attempt to map to ADaM format with missing values.
+    -   Apply multiple imputation using the `{mice}` package to handle missing data.
+    -   Recreate ADaM dataset after imputation.
+-   **Compare Results**: Understand the impact of handling missing data on the ADaM dataset.
+-   **Metadata Creation**: Document ADaM variables to align with Define XML standards for submissions.
+
+## Step-by-Step Transformation from SDTM to ADaM with Handling Missing Data
+
+### Step 1: Load Required Libraries & Data
 
 ```{r}
-1 + 1
+
+if (!requireNamespace(c("tidyverse", "mice"), quietly = TRUE)) {
+  install.packages(c("tidyverse", "mice"))
+}
+
+# Load necessary libraries
+library(tidyverse)  # Tidyverse for data manipulation
+library(admiral)    # Admiral for ADaM dataset creation
+library(mice)       # Mice for handling missing data
+
+# Loading the dataset in the third document
+sdtm_dm <- readRDS("sdtm_dm.rds") # Loads our SDTM data 
 ```
 
-You can add options to executable code like this
+**Explanation**: We start by loading the `{tidyverse}` package for general data manipulation, `{admiral}` for creating ADaM datasets, and `{mice}` to handle missing data through imputation. We also load in our previously generated SDTM dataset.
+
+### Step 2: Generate Missing Data in the SDTM DM Dataset
 
 ```{r}
-#| echo: false
-2 * 2
+# Expand the SDTM dataset to 150 observations and introduce missing values
+set.seed(123)  # Set seed for reproducibility
+
+# Expand the original mock dataset to 150 observations
+sdtm_dm_expanded <- sdtm_dm %>%
+  slice(rep(1:n(), length.out = 150)) %>%  # Repeat rows to expand the dataset to 150 observations
+  mutate(SUBJID = sprintf("SUB%03d", 1:150))  # Update SUBJID to have unique identifiers
+
+# Introduce missing values into AGE and SEX
+sdtm_dm_missing <- sdtm_dm_expanded %>%
+  mutate(
+    AGE = ifelse(runif(n()) < 0.2, NA, AGE),  # Set 20% of AGE values to NA
+    SEX = ifelse(runif(n()) < 0.1, NA, SEX)   # Set 10% of SEX values to NA
+  )
+
+# View the dataset with missing values
+head(sdtm_dm_missing)
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+**Explanation**: In this step, we expand the dataset to 150 observations using `slice()` and `mutate()`. We then introduce missing values into the `AGE` and `SEX` columns by using `ifelse()` with a random probability of setting 20% of `AGE` and 10% of `SEX` values to `NA`, simulating incomplete data.
+
+### Step 3: Attempt to Map SDTM DM with Missing Data to ADaM Format
+
+```{r}
+# Attempt to derive ADaM Dataset from SDTM DM Dataset with missing values
+adam_dm_missing <- sdtm_dm_missing %>%
+  mutate(
+    # Deriving the Age Group Variable (AGEGR1)
+    # 'case_when()' is used to create conditional logic for assigning age groups
+    AGEGR1 = case_when(
+      AGE < 18 ~ "<18",
+      AGE >= 18 & AGE <= 65 ~ "18-65",
+      AGE > 65 ~ ">65"
+    ),
+    # Creating the Safety Population Flag (SAFFL)
+    # 'ifelse()' is used to create a flag for inclusion in the safety population
+    SAFFL = ifelse(SEX %in% c("M", "F"), "Y", "N")
+  )
+
+# View the derived dataset with missing values
+head(adam_dm_missing)
+md.pattern(adam_dm_missing) # mice function for visualizing missingness; matrix and heatmap!
+```
+
+**Explanation**: Here, we attempt to map the SDTM DM dataset to an ADaM format while the dataset contains missing values. `AGEGR1`is derived using `case_when()`, and `SAFFL` is flagged using `ifelse()`. This highlights the challenges of creating ADaM datasets when data is incomplete..
+
+-   **Matrix Interpretation**: Each row represents a pattern of missingness. `1` indicates observed data, `0` indicates missing data. The last column shows how many rows have that specific pattern, and the last row indicates the number of missing values per column.
+
+-   **Heatmap Interpretation**: The heatmap visually depicts the patterns, helping identify if there are specific variables with more missing data or if there's a monotone pattern, which might simplify imputation.
+
+### Step 4: Apply Multiple Imputation Using `{mice}`
+
+The methodology behind the `mice()` function in the {mice} package for R is based on **Multivariate Imputation by Chained Equations**. The idea is to create plausible values for missing data in a dataset by treating each variable as a target to be imputed, conditioned on the other variables. The method uses a **Fully Conditional Specification (FCS)**, meaning that each incomplete variable is imputed by a separate model fitted on all other variables iteratively.
+
+**Steps in the Process**:
+
+1.  **Imputation**: Replace missing values for each variable using predictive models, specific to the type of data (e.g., predictive mean matching (`pmm`) for numeric variables, logistic regression (`logreg`) for binary categorical variables).
+
+2.  **Iteration**: The function cycles through each incomplete variable multiple times to improve the imputation estimates.
+
+3.  **Convergence**: After the iterations, a stable solution is expected. Multiple imputations are generated to reflect the uncertainty of the missing data.
+
+The **predictor matrix** specifies which variables to use as predictors for each target variable, and the **method argument** determines the imputation method used, depending on the type of variable (e.g., `pmm`, `logreg`, `polyreg`).
+
+The end result is an `mids`object, containing several imputed datasets, each reflecting different plausible imputations for the missing values, allowing researchers to conduct repeated analyses and account for uncertainty due to missing data.
+
+#### Age
+
+```{r}
+
+# Add a temporary variable to ensure sufficient columns for imputation
+sdtm_dm_missing$temp_id <- seq_len(nrow(sdtm_dm_missing))
+
+# Apply multiple imputation for AGE using the mice package
+imp_age <- mice(sdtm_dm_missing %>% select(AGE, temp_id, ETHNIC, RACERECOD), m = 5, maxit = 50, method = "pmm", seed = 500)
+
+# Complete the AGE column using the first imputation
+sdtm_dm_imputed_age <- sdtm_dm_missing
+sdtm_dm_imputed_age$AGE <- complete(imp_age, 1)$AGE
+
+# Remove the temporary variable
+sdtm_dm_imputed_age$temp_id <- NULL
+
+# View the dataset after AGE imputation
+head(sdtm_dm_imputed_age)
+```
+
+#### Sex
+
+```{r}
+
+str(sdtm_dm_imputed_age)
+# Add a temporary variable to ensure sufficient columns for imputing SEX
+sdtm_dm_imputed_age$temp_id <- seq_len(nrow(sdtm_dm_imputed_age))
+
+# Apply multiple imputation for SEX using logistic regression, using different columns as predictors
+imp_sex <- mice(sdtm_dm_imputed_age %>% select(SEX, temp_id, ETHNIC, RACERECOD, AGE), m = 5, maxit = 50, method = "logreg", seed = 500)
+
+# Complete the SEX column using the first imputation
+sdtm_dm_imputed <- sdtm_dm_imputed_age
+sdtm_dm_imputed$SEX <- complete(imp_sex, 1)$SEX
+
+# Remove the temporary variable
+sdtm_dm_imputed$temp_id <- NULL
+
+# View the dataset after SEX imputation
+head(sdtm_dm_imputed)
+```
+
+**Explanation**: We use the `mice()` function to perform multiple imputation on the dataset. Five imputed datasets are created using predictive mean matching (`pmm`), and we select the first imputed dataset for further use with the `complete()` function. This step ensures missing values are filled to create a complete dataset, however limitations can be encountered if there is not enough data to create models, which was the case for the `SEX` variable!
+
+### Step 5: Recreate the ADaM Dataset After Imputation
+
+```{r}
+# Derive ADaM Dataset from the imputed SDTM DM Dataset
+adam_dm_imputed <- sdtm_dm_imputed %>%
+  mutate(
+    # Re-create Age Group Variable (AGEGR1)
+    AGEGR1 = case_when(
+      AGE < 18 ~ "<18",
+      AGE >= 18 & AGE <= 65 ~ "18-65",
+      AGE > 65 ~ ">65"
+    ),
+    # Re-create the Safety Population Flag (SAFFL)
+    SAFFL = ifelse(SEX %in% c("M", "F"), "Y", "N")
+  ) %>%
+  select(
+    STUDYID, USUBJID, AGE, AGEGR1, SEX, SAFFL, ETHNIC, RACERECOD
+  )
+
+# View the final derived ADaM DM dataset after imputation
+head(adam_dm_imputed)
+md.pattern(adam_dm_imputed) # mice function for visualizing missingness; matrix and heatmap!
+```
+
+**Explanation**: After imputing missing values, we derive the ADaM dataset using similar transformations as before. This time, the dataset is complete, allowing us to generate `AGEGR1` and `SAFFL` without issues.
+
+### Step 6: Compare Results
+
+```{r}
+# Compare original ADaM dataset with missing values to imputed dataset
+md.pattern(adam_dm_missing) # mice function for visualizing missingness; matrix and heatmap!
+anyNA(adam_dm_imputed)
+md.pattern(adam_dm_imputed) # mice function for visualizing missingness; matrix and heatmap!
+
+# Saving the datasets for future use
+saveRDS(sdtm_dm_imputed, "sdtm_dm_imputed.rds") # RDS is a R-specific file format that is in a compressed binary format that retains structure
+saveRDS(adam_dm_imputed, "adam_dm_imputed.rds") # RDS is a R-specific file format that is in a compressed binary format that retains structure
+```
+
+**Explanation**: We compare the original ADaM dataset containing missing values (`adam_dm_missing`) to the imputed dataset (`adam_dm_imputed`). This comparison helps in understanding the impact of handling missing data on the completeness and reliability of the final analysis-ready dataset.
+
+## Justification for Using `{admiral}` and `{mice}` for More Complex Analyses
+
+-   **Handling Missing Data**: `{mice}` is a powerful package for handling missing data through multiple imputation, which is essential in clinical trial data to ensure valid and unbiased statistical analyses.
+-   **CDISC Compliance**: `{admiral}` helps in maintaining CDISC compliance when deriving ADaM datasets, ensuring regulatory requirements are met.
+-   **Complex Derivations**: Combining `{admiral}` with `{mice}` allows for efficient handling of both data standardization and missing data imputation, streamlining the process of creating analysis-ready datasets.
+
+## Important CDISC Concepts of SDTM and ADaM that We Are Adhering To During These Processes:
+
+-   **Standardization**: Standardizing datasets (ex: DM) across different clinical trials facilitates easier regulatory review and analysis.
+-   **Traceability**: The derivation of variables like `AGEGR1` and `SAFFL` from SDTM data ensures traceability, which is crucial for CDISC compliance.
+-   **Handling Missing Data**: Proper handling of missing data is critical in ensuring the accuracy and reliability of analysis results.
+-   **Metadata Documentation**: Variables in the ADaM dataset must be well-documented with metadata to comply with CDISC standards.
+-   **Population Flagging**: `SAFFL` helps in defining specific subpopulations for safety analysis, which is a requirement for regulatory submissions.
+
+## Summary of ADaM Creation with Missing Data Handling
+
+-   **Generating Missing Data**: Simulated missing values in `AGE` and `SEX` to reflect real-world scenarios.
+-   **Initial Mapping**: Attempted to create ADaM dataset from incomplete data to illustrate challenges.
+-   **Multiple Imputation**: Used `{mice}` to impute missing values, creating a complete dataset.
+-   **Age Group Derivation (`AGEGR1`)**: Classified subjects into predefined age groups.
+-   **Safety Population Flag (`SAFFL`)**: Flagged subjects for inclusion in the safety population based on available demographic data.
+-   **Compliance with ADaM Standards**: Ensured derived variables and dataset structure align with CDISC ADaM guidelines, leveraging `{admiral}` and `{mice}` for standardization and imputation.
+
+This hands-on section helps participants understand how to transform SDTM data into analysis-ready ADaM datasets while handling missing data, emphasizing compliance with CDISC standards for regulatory submissions.

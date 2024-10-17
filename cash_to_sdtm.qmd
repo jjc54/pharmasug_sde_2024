@@ -1,19 +1,37 @@
 ---
-title: "Mapping from CDASH to SDTM Using R"
-author: "Instructor Name"
+title: "Hands-On Example: Mapping from CDASH to SDTM Using R"
+author: "Joshua J. Cook"
 date: "`r Sys.Date()`"
 format: html
+embed-resources: true
+toc: true
 ---
-
-# Walkthrough: Mapping from CDASH to SDTM Using R
 
 ## Objective
 
-The goal of this walkthrough is to map clinical trial data from a CDASH-compliant dataset to an SDTM dataset using R. We will use a mock dataset that simulates the CDISC CDASH Demographics CRF and apply tidyverse packages to transform the data according to CDISC standards.
+The goal of this walkthrough is to [**map clinical trial data from a CDASH-compliant dataset to an SDTM dataset using R**]{.underline}. We will use a [mock dataset]{.underline} that simulates the CDISC [CDASH]{.underline} [Demographics]{.underline} CRF and apply tidyverse packages to transform the data according to CDISC standards.
 
-## Step 1: Load Required Libraries
+## Key Points for Presentation
 
-Load the required packages for this exercise, tidyverse for data manipulation.
+-   **Objective**: Demonstrate mapping CDASH-compliant CRF raw data to SDTM format using R for standardization and compliance.
+
+-   **Libraries**: Use `{tidyverse}` for effective data manipulation.
+
+-   **Mock Data Generation**: Simulate demographic data (e.g., `AGE`, `SEX`, `RACE`, `RACEOTH`).
+
+-   **Data Understanding**: Ensure standardization in demographic fields for consistency across datasets.
+
+-   **Mapping Process**:
+
+    -   Create `DOMAIN`, `USUBJID`, and derive `RACERECOD` for standardized race categories.
+
+-   **Metadata Creation**: Document SDTM variables for regulatory submissions.
+
+-   **Hands-on Learning**: Practice real-world compliance and data standardization.
+
+### Step 1: Load Required Libraries
+
+**Explanation**: Load the required packages for this exercise, tidyverse for data manipulation.
 
 ```{r}
 # Install and load necessary packages
@@ -26,38 +44,38 @@ if (!requireNamespace("tidyverse", quietly = TRUE)) {
 library(tidyverse)    # Collection of R packages for data science
 ```
 
-## Step 2: Generate the Mock CDASH Dataset
+### Step 2: Generate the Mock CDASH Dataset
 
-We will generate a mock dataset based on the CDISC CDASH Demographics CRF, which includes key variables such as BRTHDAT, AGE, AGEU, SEX, ETHNIC, RACE, and RACEOTH.
+**Explanation**: We will generate a mock dataset based on the CDISC CDASH Demographics CRF, which includes key variables such as BRTHDAT, AGE, AGEU, SEX, ETHNIC, RACE, and RACEOTH.
 
 ```{r}
 # Generating Mock CDASH Demographics Dataset
-set.seed(123)  # Set seed for reproducibility
+set.seed(123)  # Set seed for reproducibility to ensure consistent results across runs
 
 # Create mock data
 cdash_data <- data.frame(
-  STUDYID = rep("CDASH_DEMO_01", 20),
-  SUBJID = sprintf("SUB%03d", 1:20),
-  BRTHDAT = sample(seq(as.Date('1940/01/01'), as.Date('2005/12/31'), by="day"), 20),
-  AGE = sample(18:85, 20, replace = TRUE),
-  AGEU = rep("Years", 20),
-  SEX = sample(c("F", "M", "U", "UNDIFFERENTIATED"), 20, replace = TRUE),
-  ETHNIC = sample(c("HISPANIC OR LATINO", "NOT HISPANIC OR LATINO", "NOT REPORTED", "UNKNOWN"), 20, replace = TRUE),
-  RACE = sample(c("AMERICAN INDIAN OR ALASKA NATIVE", "ASIAN", "BLACK OR AFRICAN AMERICAN", "NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER", "WHITE", "NOT REPORTED", "UNKNOWN", "OTHER"), 20, replace = TRUE),
-  RACEOTH = ifelse(runif(20) < 0.1, sample(c("Caucasian", "Black American"), 20, replace = TRUE), NA)  # Some entries have other race specified
+  STUDYID = rep("CDASH_DEMO_01", 20),  # Create a column 'STUDYID' with the same study identifier for all subjects
+  SUBJID = sprintf("SUB%03d", 1:20),  # Generate unique subject IDs using 'sprintf' for a consistent format (e.g., SUB001, SUB002)
+  BRTHDAT = sample(seq(as.Date('1940/01/01'), as.Date('2005/12/31'), by="day"), 20),  # Randomly sample birth dates between 1940 and 2005
+  AGE = sample(18:85, 20, replace = TRUE),  # Randomly generate ages between 18 and 85 for each subject
+  AGEU = rep("Years", 20),  # Set 'AGEU' (Age Unit) to "Years" for all subjects
+  SEX = sample(c("F", "M"), 20, replace = TRUE),  # Randomly assign sex from the given options
+  ETHNIC = sample(c("HISPANIC OR LATINO", "NOT HISPANIC OR LATINO", "NOT REPORTED", "UNKNOWN"), 20, replace = TRUE),  # Randomly assign ethnicity
+  RACE = sample(c("AMERICAN INDIAN OR ALASKA NATIVE", "ASIAN", "BLACK OR AFRICAN AMERICAN", "NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER", "WHITE", "NOT REPORTED", "UNKNOWN", "OTHER"), 20, replace = TRUE),  # Randomly assign race from the given categories
+  RACEOTH = ifelse(runif(20) < 0.1, sample(c("Caucasian", "Black American"), 20, replace = TRUE), NA)  # Assign 'RACEOTH' if random value is < 0.1, otherwise set to NA
 )
 
-# Display the first few rows of the mock dataset
+# Display the first few rows of the mock dataset to verify its structure
 head(cdash_data)
 ```
 
-## Step 3: Understanding CDASH Data
+### Step 3: Understanding CDASH Data
 
-In this dataset, we have demographic information collected at the point of data acquisition (e.g., SUBJID, AGE, SEX, RACE). These fields are collected using CDASH standards to ensure consistency and ease of mapping.
+**Explanation**: In this dataset, we have demographic information collected at the point of data acquisition (e.g., SUBJID, AGE, SEX, RACE). These fields are collected using CDASH standards to ensure consistency and ease of mapping.
 
-## Step 4: Map CDASH Data to SDTM DM Domain
+### Step 4: Map CDASH Data to SDTM DM Domain
 
-Now we will map the data from the CDASH dataset to an SDTM DM (Demographics) domain dataset using the dplyr transformations.
+**Explanation**: Now we will map the data from the CDASH dataset to an SDTM DM (Demographics) domain dataset using the dplyr transformations.
 
 ```{r}
 # Map CDASH data to SDTM DM domain
@@ -81,27 +99,30 @@ sdtm_dm <- cdash_data %>%
     SEX = SEX,                  # Sex of the Subject
     ETHNIC = ETHNIC,            # Ethnicity of the Subject
     RACE = RACE,                # Original Race variable
-    RACERECOD = RACERECOD,      # Recoded Race variable
-    RACEOTH = RACEOTH           # Original RACEOTH variable
+    RACEOTH = RACEOTH,           # Original RACEOTH variable
+    RACERECOD = RACERECOD      # Recoded Race variable
   )
 
 # View the mapped SDTM DM dataset
 head(sdtm_dm) # View the first few rows to validate the mapping
+
+# Saving the dataset for future use
+saveRDS(sdtm_dm, "sdtm_dm.rds") # RDS is a R-specific file format that is in a compressed binary format that retains structure
 ```
 
-## Step 5: Review the Mapping Process
+### Step 5: Review the Mapping Process
 
 -   **STUDYID**: Study identifier, derived from STUDYID in the CDASH dataset.
 -   **DOMAIN**: A constant value "DM" to indicate the Demographics domain.
 -   **USUBJID**: Unique subject identifier, created by concatenating STUDYID and SUBJID.
 -   **BRTHDAT**: Birth date of the subject.
 -   **AGEU**: Unit for age, taken directly from AGEU in the dataset.
--   **SEX / ETHNIC / RACE**: Subject demographic information, mapped directly from CDASH.
+-   **SEX / ETHNIC / RACE / RACEOTH**: Subject demographic information, mapped directly from CDASH.
 -   **RACERECOD**: A derived variable combining RACE and RACEOTH where applicable, without altering the original RACE or RACEOTH. Specifically, "Caucasian" is mapped to "WHITE" and "Black American" is mapped to "BLACK OR AFRICAN AMERICAN".
 
-## Step 6: Create Define-XML Metadata
+### Step 6: Create Define-XML Metadata
 
-To document the SDTM dataset and provide context for regulatory submissions, we use metadata. Below is a simplified approach for generating metadata using R.
+**Explanation**: To document the SDTM dataset and provide context for regulatory submissions, we use metadata. Below is a simplified approach for generating metadata using R.
 
 ```{r}
 # Example metadata definition (for demonstration purposes)
@@ -129,7 +150,19 @@ define_metadata <- data.frame(
 print(define_metadata)
 ```
 
-## Summary
+## Important CDISC concepts of CDASH and SDTM that we are adhering to during these processes:
+
+1.  **Standardized Data Collection (CDASH)**: CDASH is used to collect clinical data in a standardized format, ensuring consistency across clinical trials and compliance with regulatory requirements.
+
+2.  **Derivation of Variables**: For SDTM datasets, derived variables like `RACERECOD` are created based on existing fields (`RACE`, `RACEOTH`) to standardize race data. This derivation is an essential part of preparing clean, compliant datasets.
+
+3.  **Define-XML Creation**: Creating metadata (`define_metadata`) that describes variables, types, and origins. This documentation is crucial for submissions to regulatory bodies, ensuring transparency and traceability of data.
+
+4.  **Domain Assignment (SDTM)**: SDTM assigns specific domains like `DM` (Demographics) to data. This helps categorize and organize data consistently across clinical trials.
+
+5.  **Unique Subject Identifier (`USUBJID`)**: Creation of unique subject identifiers (`USUBJID`) by concatenating `STUDYID` and `SUBJID`. This ensures that every subject has a unique ID, which is crucial for regulatory submissions.
+
+## Summary of SDTM Creation
 
 By the end of this walkthrough, participants should understand: - The relationship between **CDASH and SDTM** standards. - How to map data from a CDASH-compliant dataset to an SDTM dataset. - The importance of documenting the dataset structure using metadata for regulatory compliance. - How to iteratively clean and correct data to ensure compliance.
 
