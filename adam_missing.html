@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Joshua J. Cook">
-<meta name="dcterms.date" content="2024-10-17">
+<meta name="dcterms.date" content="2024-10-21">
 
 <title>Hands-On Example: Mapping from SDTM to ADaM Using R and Handling Missing Data with Multiple Imputation</title>
 <style>
@@ -3097,7 +3097,7 @@ vertical-align: -.125em;
   <li><a href="#step-5-recreate-the-adam-dataset-after-imputation" id="toc-step-5-recreate-the-adam-dataset-after-imputation" class="nav-link" data-scroll-target="#step-5-recreate-the-adam-dataset-after-imputation">Step 5: Recreate the ADaM Dataset After Imputation</a></li>
   <li><a href="#step-6-compare-results" id="toc-step-6-compare-results" class="nav-link" data-scroll-target="#step-6-compare-results">Step 6: Compare Results</a></li>
   </ul></li>
-  <li><a href="#justification-for-using-admiral-and-mice-for-more-complex-analyses" id="toc-justification-for-using-admiral-and-mice-for-more-complex-analyses" class="nav-link" data-scroll-target="#justification-for-using-admiral-and-mice-for-more-complex-analyses">Justification for Using <code>{admiral}</code> and <code>{mice}</code> for More Complex Analyses</a></li>
+  <li><a href="#justification-for-using-mice-for-more-complex-analyses" id="toc-justification-for-using-mice-for-more-complex-analyses" class="nav-link" data-scroll-target="#justification-for-using-mice-for-more-complex-analyses">Justification for Using <code>{mice}</code> for More Complex Analyses</a></li>
   <li><a href="#important-cdisc-concepts-of-sdtm-and-adam-that-we-are-adhering-to-during-these-processes" id="toc-important-cdisc-concepts-of-sdtm-and-adam-that-we-are-adhering-to-during-these-processes" class="nav-link" data-scroll-target="#important-cdisc-concepts-of-sdtm-and-adam-that-we-are-adhering-to-during-these-processes">Important CDISC Concepts of SDTM and ADaM that We Are Adhering To During These Processes:</a></li>
   <li><a href="#summary-of-adam-creation-with-missing-data-handling" id="toc-summary-of-adam-creation-with-missing-data-handling" class="nav-link" data-scroll-target="#summary-of-adam-creation-with-missing-data-handling">Summary of ADaM Creation with Missing Data Handling</a></li>
   </ul>
@@ -3124,7 +3124,7 @@ vertical-align: -.125em;
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">October 17, 2024</p>
+      <p class="date">October 21, 2024</p>
     </div>
   </div>
   
@@ -3181,8 +3181,7 @@ vertical-align: -.125em;
 ✖ dplyr::lag()    masks stats::lag()
 ℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(admiral)    <span class="co"># Admiral for ADaM dataset creation</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(mice)       <span class="co"># Mice for handling missing data</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(mice)       <span class="co"># Mice for handling missing data</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
 <pre><code>
 Attaching package: &#39;mice&#39;
@@ -4062,12 +4061,10 @@ The following objects are masked from &#39;package:base&#39;:
 <p><strong>Explanation</strong>: We compare the original ADaM dataset containing missing values (<code>adam_dm_missing</code>) to the imputed dataset (<code>adam_dm_imputed</code>). This comparison helps in understanding the impact of handling missing data on the completeness and reliability of the final analysis-ready dataset.</p>
 </section>
 </section>
-<section id="justification-for-using-admiral-and-mice-for-more-complex-analyses" class="level2">
-<h2 class="anchored" data-anchor-id="justification-for-using-admiral-and-mice-for-more-complex-analyses">Justification for Using <code>{admiral}</code> and <code>{mice}</code> for More Complex Analyses</h2>
+<section id="justification-for-using-mice-for-more-complex-analyses" class="level2">
+<h2 class="anchored" data-anchor-id="justification-for-using-mice-for-more-complex-analyses">Justification for Using <code>{mice}</code> for More Complex Analyses</h2>
 <ul>
 <li><strong>Handling Missing Data</strong>: <code>{mice}</code> is a powerful package for handling missing data through multiple imputation, which is essential in clinical trial data to ensure valid and unbiased statistical analyses.</li>
-<li><strong>CDISC Compliance</strong>: <code>{admiral}</code> helps in maintaining CDISC compliance when deriving ADaM datasets, ensuring regulatory requirements are met.</li>
-<li><strong>Complex Derivations</strong>: Combining <code>{admiral}</code> with <code>{mice}</code> allows for efficient handling of both data standardization and missing data imputation, streamlining the process of creating analysis-ready datasets.</li>
 </ul>
 </section>
 <section id="important-cdisc-concepts-of-sdtm-and-adam-that-we-are-adhering-to-during-these-processes" class="level2">
@@ -4088,7 +4085,7 @@ The following objects are masked from &#39;package:base&#39;:
 <li><strong>Multiple Imputation</strong>: Used <code>{mice}</code> to impute missing values, creating a complete dataset.</li>
 <li><strong>Age Group Derivation (<code>AGEGR1</code>)</strong>: Classified subjects into predefined age groups.</li>
 <li><strong>Safety Population Flag (<code>SAFFL</code>)</strong>: Flagged subjects for inclusion in the safety population based on available demographic data.</li>
-<li><strong>Compliance with ADaM Standards</strong>: Ensured derived variables and dataset structure align with CDISC ADaM guidelines, leveraging <code>{admiral}</code> and <code>{mice}</code> for standardization and imputation.</li>
+<li><strong>Compliance with ADaM Standards</strong>: Ensured derived variables and dataset structure align with CDISC ADaM guidelines, leveraging <code>{mice}</code> for imputation.</li>
 </ul>
 <p>This hands-on section helps participants understand how to transform SDTM data into analysis-ready ADaM datasets while handling missing data, emphasizing compliance with CDISC standards for regulatory submissions.</p>
 </section>

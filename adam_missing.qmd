@@ -37,7 +37,6 @@ if (!requireNamespace(c("tidyverse", "mice"), quietly = TRUE)) {
 
 # Load necessary libraries
 library(tidyverse)  # Tidyverse for data manipulation
-library(admiral)    # Admiral for ADaM dataset creation
 library(mice)       # Mice for handling missing data
 
 # Loading the dataset in the third document
@@ -201,11 +200,9 @@ saveRDS(adam_dm_imputed, "adam_dm_imputed.rds") # RDS is a R-specific file forma
 
 **Explanation**: We compare the original ADaM dataset containing missing values (`adam_dm_missing`) to the imputed dataset (`adam_dm_imputed`). This comparison helps in understanding the impact of handling missing data on the completeness and reliability of the final analysis-ready dataset.
 
-## Justification for Using `{admiral}` and `{mice}` for More Complex Analyses
+## Justification for Using `{mice}` for More Complex Analyses
 
 -   **Handling Missing Data**: `{mice}` is a powerful package for handling missing data through multiple imputation, which is essential in clinical trial data to ensure valid and unbiased statistical analyses.
--   **CDISC Compliance**: `{admiral}` helps in maintaining CDISC compliance when deriving ADaM datasets, ensuring regulatory requirements are met.
--   **Complex Derivations**: Combining `{admiral}` with `{mice}` allows for efficient handling of both data standardization and missing data imputation, streamlining the process of creating analysis-ready datasets.
 
 ## Important CDISC Concepts of SDTM and ADaM that We Are Adhering To During These Processes:
 
@@ -222,6 +219,6 @@ saveRDS(adam_dm_imputed, "adam_dm_imputed.rds") # RDS is a R-specific file forma
 -   **Multiple Imputation**: Used `{mice}` to impute missing values, creating a complete dataset.
 -   **Age Group Derivation (`AGEGR1`)**: Classified subjects into predefined age groups.
 -   **Safety Population Flag (`SAFFL`)**: Flagged subjects for inclusion in the safety population based on available demographic data.
--   **Compliance with ADaM Standards**: Ensured derived variables and dataset structure align with CDISC ADaM guidelines, leveraging `{admiral}` and `{mice}` for standardization and imputation.
+-   **Compliance with ADaM Standards**: Ensured derived variables and dataset structure align with CDISC ADaM guidelines, leveraging `{mice}` for imputation.
 
 This hands-on section helps participants understand how to transform SDTM data into analysis-ready ADaM datasets while handling missing data, emphasizing compliance with CDISC standards for regulatory submissions.

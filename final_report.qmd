@@ -2,7 +2,7 @@
 title: "Hands-On Example: Creating a Final Report with Quarto"
 author: "Joshua J. Cook"
 date: "`r Sys.Date()`"
-format: 
+format:
   html:
     toc: true
   pdf:
@@ -48,7 +48,7 @@ adam_dm_imputed <- readRDS("adam_dm_imputed.rds") # Loads our ADaM data
 
 **Explanation**: We start by loading the `{tidyverse}` package for data manipulation and visualization, `{gt}` and `{gtsummary}` for creating tables and listings, and `{quarto}` for generating the final report. We also load in our previously generated SDTM and ADaM datasets.
 
-### Step 2: Generate Summary Tables and Listings
+### Step 2: Generate Summary Tables
 
 ```{r}
 # Generate a summary table for demographic characteristics using gtsummary
